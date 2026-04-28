@@ -2,8 +2,25 @@ from flask import Blueprint, request, jsonify, redirect
 from services.gmail_service import GmailService
 from models.database import get_db_connection
 import traceback
+import os
 
 api_bp = Blueprint('api', __name__)
+
+def _build_redirect_uri():
+    """
+    Returns the OAuth redirect URI.
+    Prefers the APP_BASE_URL env var (set this on Render to your public URL).
+    Falls back to deriving it from the request, forcing https when behind a proxy.
+    """
+    base_url = os.environ.get('APP_BASE_URL', '').rstrip('/')
+    if base_url:
+        return base_url + '/api/gmail/callback'
+
+    # Fallback: derive from request, fix http->https when behind Render's proxy
+    base = request.url_root.rstrip('/')
+    if request.headers.get('X-Forwarded-Proto') == 'https':
+        base = base.replace('http://', 'https://', 1)
+    return base + '/api/gmail/callback'
 
 @api_bp.route('/register', methods=['POST'])
 def register():
@@ -69,11 +86,8 @@ def gmail_callback():
     if not code or not state:
         return redirect(f"{request.host_url}?error=missing_code_or_state")
     
-    # Force https on Render (url_root can return http:// behind a proxy)
-    base = request.url_root.rstrip('/')
-    if request.headers.get('X-Forwarded-Proto') == 'https':
-        base = base.replace('http://', 'https://', 1)
-    redirect_uri = base + '/api/gmail/callback'
+    redirect_uri = _build_redirect_uri()
+    print(f"gmail_callback: using redirect_uri={redirect_uri}")
 
     gmail_service = GmailService(email=state)
     creds = gmail_service.exchange_code_for_credentials(code, email=state, redirect_uri=redirect_uri)
@@ -101,11 +115,8 @@ def gmail_auth_url():
     if not email:
         return jsonify({"error": "Email is required"}), 400
 
-    # Force https on Render (url_root can return http:// behind a proxy)
-    base = request.url_root.rstrip('/')
-    if request.headers.get('X-Forwarded-Proto') == 'https':
-        base = base.replace('http://', 'https://', 1)
-    redirect_uri = base + '/api/gmail/callback'
+    redirect_uri = _build_redirect_uri()
+    print(f"gmail_auth_url: using redirect_uri={redirect_uri}")
 
     try:
         gmail_service = GmailService(email=email)
