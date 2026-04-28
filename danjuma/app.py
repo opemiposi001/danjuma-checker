@@ -32,5 +32,10 @@ def create_app():
 app = create_app()
 
 if __name__ == '__main__':
+    import sys
+    # Force unbuffered output for better logging on Render
+    sys.stdout.reconfigure(line_buffering=True)
+    sys.stderr.reconfigure(line_buffering=True)
+    
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
