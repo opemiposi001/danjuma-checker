@@ -32,6 +32,30 @@ function renderResult(data, type = 'info') {
         `;
     }
 
+    if (type === 'gmail_auth_url') {
+        cardClass = data.auth_url ? 'success' : 'error';
+        htmlContent = `
+            <div class="result-title">
+                <i class="fas fa-external-link-alt"></i>
+                <span>Gmail Authorization URL</span>
+            </div>
+            <p style="color: var(--text-secondary);">
+                ${data.message || data.error || 'Copy the URL below and open it in a new tab.'}
+            </p>
+            ${data.auth_url ? `<div class="scan-details"><a href="${data.auth_url}" target="_blank" rel="noopener noreferrer">Open Gmail Consent Page</a></div>` : ''}
+        `;
+    }
+
+    if (type === 'gmail_authorize') {
+        cardClass = data.message ? 'success' : 'error';
+        htmlContent = `
+            <div class="result-title">
+                <i class="fas fa-check-circle"></i>
+                <span>${data.message || data.error || 'Gmail authorization failed'}</span>
+            </div>
+        `;
+    }
+
     if (type === 'scans') {
         cardClass = data.length > 0 ? 'success' : 'info';
         
@@ -158,6 +182,58 @@ document.getElementById('statusForm').addEventListener('submit', async (e) => {
         renderResult(data, 'status');
     } catch (error) {
         renderResult({ error: error.message }, 'status');
+    } finally {
+        restoreButton(button, originalContent);
+    }
+});
+
+// Gmail Auth URL Form
+document.getElementById('gmailAuthUrlForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const button = e.target.querySelector('button');
+    const originalContent = showLoading(button);
+    
+    try {
+        const email = document.getElementById('gmailAuthUrlEmail').value;
+        const response = await fetch(`${baseUrl}/api/gmail/auth-url?email=${encodeURIComponent(email)}`);
+        const data = await response.json();
+
+        if (response.ok && data.auth_url) {
+            window.open(data.auth_url, '_blank');
+            renderResult({ message: 'Gmail consent page opened. Paste the returned code below to complete authorization.', auth_url: data.auth_url }, 'gmail_auth_url');
+        } else {
+            renderResult(data, 'gmail_auth_url');
+        }
+    } catch (error) {
+        renderResult({ error: error.message }, 'gmail_auth_url');
+    } finally {
+        restoreButton(button, originalContent);
+    }
+});
+
+// Gmail Authorization Form
+document.getElementById('gmailAuthorizeForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const button = e.target.querySelector('button');
+    const originalContent = showLoading(button);
+    
+    try {
+        const email = document.getElementById('gmailAuthorizeEmail').value;
+        const code = document.getElementById('gmailAuthCode').value;
+        const response = await fetch(`${baseUrl}/api/gmail/authorize`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, code })
+        });
+        const data = await response.json();
+        renderResult(data, 'gmail_authorize');
+
+        if (data.message) {
+            document.getElementById('gmailAuthorizeEmail').value = '';
+            document.getElementById('gmailAuthCode').value = '';
+        }
+    } catch (error) {
+        renderResult({ error: error.message }, 'gmail_authorize');
     } finally {
         restoreButton(button, originalContent);
     }

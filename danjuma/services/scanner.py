@@ -28,7 +28,7 @@ def run_scan_for_all_registered_emails():
         print(f"Scanning for: {email}")
         
         # Scan emails from 1 to 9 minutes old (avoid recent and very old emails)
-        unread_emails = gmail_service.get_unread_emails_with_attachments(email, min_age_minutes=1, max_age_minutes=9)
+        unread_emails = gmail_service.get_unread_emails_with_attachments(min_age_minutes=1, max_age_minutes=9)
         
         for email_msg in unread_emails:
             sender = email_msg['sender']

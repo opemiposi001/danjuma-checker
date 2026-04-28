@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify
+from services.gmail_service import GmailService
 from models.database import get_db_connection
 
 api_bp = Blueprint('api', __name__)

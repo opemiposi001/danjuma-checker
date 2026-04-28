@@ -39,6 +39,27 @@
                 </form>
             </div>
 
+            <!-- Gmail OAuth Card -->
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-envelope-open-text"></i>
+                    <h2>Gmail Authorization</h2>
+                </div>
+                <form id="gmailAuthUrlForm" class="form-group">
+                    <input type="email" id="gmailAuthUrlEmail" placeholder="Enter your Gmail address" required>
+                    <button type="submit" class="btn btn-secondary">
+                        <i class="fas fa-arrow-right"></i> Get Gmail Auth URL
+                    </button>
+                </form>
+                <form id="gmailAuthorizeForm" class="form-group">
+                    <input type="email" id="gmailAuthorizeEmail" placeholder="Enter your Gmail address" required>
+                    <input type="text" id="gmailAuthCode" placeholder="Paste authorization code here" required>
+                    <button type="submit" class="btn btn-secondary">
+                        <i class="fas fa-check-circle"></i> Complete Gmail Authorization
+                    </button>
+                </form>
+            </div>
+
             <!-- Status Card -->
             <div class="card">
                 <div class="card-header">
