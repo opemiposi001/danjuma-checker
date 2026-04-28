@@ -82,18 +82,37 @@ def gmail_callback():
     """Handle OAuth callback from Google."""
     code = request.args.get('code')
     state = request.args.get('state')  # This will be the email
+    error = request.args.get('error')
+    
+    print(f"=== gmail_callback invoked ===")
+    print(f"code present: {bool(code)}")
+    print(f"state (email): {state}")
+    print(f"error from Google: {error}")
+    
+    if error:
+        print(f"Google returned error: {error}")
+        return redirect(f"{request.host_url}?error=google_oauth_error_{error}")
     
     if not code or not state:
+        print("Missing code or state parameter")
         return redirect(f"{request.host_url}?error=missing_code_or_state")
     
     redirect_uri = _build_redirect_uri()
     print(f"gmail_callback: using redirect_uri={redirect_uri}")
 
-    gmail_service = GmailService(email=state)
-    creds = gmail_service.exchange_code_for_credentials(code, email=state, redirect_uri=redirect_uri)
+    try:
+        gmail_service = GmailService(email=state)
+        creds = gmail_service.exchange_code_for_credentials(code, email=state, redirect_uri=redirect_uri)
+    except Exception as e:
+        print(f"Exception during exchange_code_for_credentials: {e}")
+        traceback.print_exc()
+        return redirect(f"{request.host_url}?error=exception_during_exchange")
     
     if not creds:
+        print("exchange_code_for_credentials returned None")
         return redirect(f"{request.host_url}?error=failed_to_exchange_code")
+    
+    print(f"Successfully obtained credentials for {state}")
     
     # Register the email if not already registered
     db = get_db_connection()
@@ -101,6 +120,7 @@ def gmail_callback():
     try:
         cursor.execute("INSERT OR IGNORE INTO registered_emails (email, is_active) VALUES (?, 1)", (state,))
         db.commit()
+        print(f"Registered email {state} in database")
     except Exception as e:
         print(f"Error registering email: {e}")
     finally:
