@@ -58,6 +58,37 @@ def get_status():
     else:
         return jsonify({"is_active": False})
 
+@api_bp.route('/gmail/auth-url', methods=['GET'])
+def gmail_auth_url():
+    email = request.args.get('email')
+    if not email:
+        return jsonify({"error": "Email is required"}), 400
+
+    gmail_service = GmailService(email=email)
+    auth_url, state = gmail_service.get_authorization_url(email=email)
+
+    if not auth_url:
+        return jsonify({"error": "Unable to generate Gmail authorization URL"}), 500
+
+    return jsonify({"auth_url": auth_url, "state": state})
+
+@api_bp.route('/gmail/authorize', methods=['POST'])
+def gmail_authorize():
+    data = request.get_json() or {}
+    email = data.get('email')
+    code = data.get('code')
+
+    if not email or not code:
+        return jsonify({"error": "Email and authorization code are required"}), 400
+
+    gmail_service = GmailService(email=email)
+    creds = gmail_service.exchange_code_for_credentials(code, email=email)
+
+    if not creds:
+        return jsonify({"error": "Failed to exchange authorization code for credentials"}), 500
+
+    return jsonify({"message": f"Gmail authorized for {email}"}), 200
+
 @api_bp.route('/unregister', methods=['DELETE'])
 def unregister():
     data = request.get_json()

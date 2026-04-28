@@ -1,5 +1,6 @@
 import sqlite3
 from datetime import datetime
+import json
 import os
 
 # Get DB path from environment variable or use default
@@ -20,7 +21,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             email TEXT UNIQUE NOT NULL,
             registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            is_active BOOLEAN DEFAULT 1
+            is_active BOOLEAN DEFAULT 0
         )
     ''')
 
@@ -39,8 +40,37 @@ def init_db():
         )
     ''')
 
+    # Table 3: oauth_tokens
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS oauth_tokens (
+            email TEXT PRIMARY KEY,
+            token_data TEXT NOT NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
     conn.commit()
     conn.close()
 
 if __name__ == '__main__':
     init_db()
+
+def save_oauth_token(email, token_data):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        '''INSERT OR REPLACE INTO oauth_tokens (email, token_data, updated_at)
+           VALUES (?, ?, CURRENT_TIMESTAMP)''',
+        (email, token_data)
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_oauth_token(email):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT token_data FROM oauth_tokens WHERE email = ?', (email,))
+    row = cursor.fetchone()
+    conn.close()
+    return row['token_data'] if row else None

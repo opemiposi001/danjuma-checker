@@ -58,6 +58,8 @@ To use the Gmail API, you need to create a project in the Google Cloud Console a
 - `POST /api/register`: Accepts `{ "email": "user@gmail.com" }`.
 - `GET /api/scans?email=user@gmail.com`: Returns scan history for the email.
 - `GET /api/status?email=user@gmail.com`: Returns whether protection is active.
+- `GET /api/gmail/auth-url?email=user@gmail.com`: Returns a Gmail OAuth authorization URL.
+- `POST /api/gmail/authorize`: Accepts `{ "email": "user@gmail.com", "code": "<oauth_code>" }` to exchange an auth code and save Gmail tokens.
 - `DELETE /api/unregister`: Deactivates protection for the email.
 
 ## Deployment on Render
