@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, redirect
 from services.gmail_service import GmailService
 from models.database import get_db_connection
+import traceback
 
 api_bp = Blueprint('api', __name__)
 
@@ -68,8 +69,12 @@ def gmail_callback():
     if not code or not state:
         return redirect(f"{request.host_url}?error=missing_code_or_state")
     
-    # Exchange code for credentials
-    redirect_uri = request.url_root.rstrip('/') + '/api/gmail/callback'
+    # Force https on Render (url_root can return http:// behind a proxy)
+    base = request.url_root.rstrip('/')
+    if request.headers.get('X-Forwarded-Proto') == 'https':
+        base = base.replace('http://', 'https://', 1)
+    redirect_uri = base + '/api/gmail/callback'
+
     gmail_service = GmailService(email=state)
     creds = gmail_service.exchange_code_for_credentials(code, email=state, redirect_uri=redirect_uri)
     
@@ -96,15 +101,22 @@ def gmail_auth_url():
     if not email:
         return jsonify({"error": "Email is required"}), 400
 
-    redirect_uri = request.url_root.rstrip('/') + '/api/gmail/callback'
-    gmail_service = GmailService(email=email)
-    auth_url, state = gmail_service.get_authorization_url(email=email, redirect_uri=redirect_uri)
+    # Force https on Render (url_root can return http:// behind a proxy)
+    base = request.url_root.rstrip('/')
+    if request.headers.get('X-Forwarded-Proto') == 'https':
+        base = base.replace('http://', 'https://', 1)
+    redirect_uri = base + '/api/gmail/callback'
+
+    try:
+        gmail_service = GmailService(email=email)
+        auth_url, state = gmail_service.get_authorization_url(email=email, redirect_uri=redirect_uri)
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": f"Exception generating auth URL: {str(e)}"}), 500
 
     if not auth_url:
-        return jsonify({"error": "Unable to generate Gmail authorization URL"}), 500
+        return jsonify({"error": "Unable to generate Gmail authorization URL. Check that credentials.json exists and is valid."}), 500
 
-    # For the automatic flow, redirect directly to the auth URL
-    # The state parameter will contain the email
     return redirect(auth_url)
 
 @api_bp.route('/gmail/authorize', methods=['POST'])
