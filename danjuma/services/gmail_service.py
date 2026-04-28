@@ -14,7 +14,8 @@ SCOPES = ['https://www.googleapis.com/auth/gmail.modify', 'https://www.googleapi
 class GmailService:
     def __init__(self, email=None, credentials_path=None, redirect_port=None):
         self.email = email
-        self.credentials_path = credentials_path or os.environ.get('GOOGLE_CREDENTIALS_PATH', 'danjuma/credentials.json')
+        default_path = os.environ.get('GOOGLE_CREDENTIALS_PATH', 'credentials.json')
+        self.credentials_path = credentials_path or default_path
         self.redirect_port = int(redirect_port or os.environ.get('GOOGLE_OAUTH_REDIRECT_PORT', '53510'))
         self.creds = self.get_credentials()
 
@@ -27,11 +28,17 @@ class GmailService:
                 print('Error: GOOGLE_CREDENTIALS_JSON is not valid JSON.')
                 return None
 
-        if not os.path.exists(self.credentials_path):
-            print(f'Error: {self.credentials_path} not found.')
-            return None
+        credentials_path = self.credentials_path
+        if not os.path.exists(credentials_path):
+            alt_base = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+            alt_path = os.path.normpath(os.path.join(alt_base, credentials_path))
+            if os.path.exists(alt_path):
+                credentials_path = alt_path
+            else:
+                print(f'Error: {self.credentials_path} not found. Tried {credentials_path} and {alt_path}.')
+                return None
 
-        with open(self.credentials_path, 'r', encoding='utf-8') as f:
+        with open(credentials_path, 'r', encoding='utf-8') as f:
             return json.load(f)
 
     def create_oauth_flow(self, redirect_uri):
@@ -109,6 +116,12 @@ class GmailService:
 
         # Fallback for legacy token file support
         token_path = os.environ.get('GOOGLE_TOKEN_PATH', 'token.json')
+        if not os.path.exists(token_path):
+            alt_base = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+            alt_path = os.path.normpath(os.path.join(alt_base, os.path.basename(token_path)))
+            if os.path.exists(alt_path):
+                token_path = alt_path
+
         if os.path.exists(token_path):
             try:
                 creds = Credentials.from_authorized_user_file(token_path, SCOPES)

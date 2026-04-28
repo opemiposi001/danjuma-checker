@@ -69,8 +69,9 @@ def gmail_callback():
         return redirect(f"{request.host_url}?error=missing_code_or_state")
     
     # Exchange code for credentials
+    redirect_uri = request.url_root.rstrip('/') + '/api/gmail/callback'
     gmail_service = GmailService(email=state)
-    creds = gmail_service.exchange_code_for_credentials(code, email=state)
+    creds = gmail_service.exchange_code_for_credentials(code, email=state, redirect_uri=redirect_uri)
     
     if not creds:
         return redirect(f"{request.host_url}?error=failed_to_exchange_code")
@@ -95,8 +96,9 @@ def gmail_auth_url():
     if not email:
         return jsonify({"error": "Email is required"}), 400
 
+    redirect_uri = request.url_root.rstrip('/') + '/api/gmail/callback'
     gmail_service = GmailService(email=email)
-    auth_url, state = gmail_service.get_authorization_url(email=email)
+    auth_url, state = gmail_service.get_authorization_url(email=email, redirect_uri=redirect_uri)
 
     if not auth_url:
         return jsonify({"error": "Unable to generate Gmail authorization URL"}), 500
