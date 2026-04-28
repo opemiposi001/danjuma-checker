@@ -46,13 +46,29 @@ function renderResult(data, type = 'info') {
         `;
     }
 
-    if (type === 'gmail_authorize') {
-        cardClass = data.message ? 'success' : 'error';
+    if (type === 'gmail_success') {
+        cardClass = 'success';
         htmlContent = `
             <div class="result-title">
                 <i class="fas fa-check-circle"></i>
-                <span>${data.message || data.error || 'Gmail authorization failed'}</span>
+                <span>Gmail Successfully Authorized</span>
             </div>
+            <p style="color: var(--text-secondary);">
+                Your Gmail account <strong>${data.email}</strong> has been authorized and registered for monitoring.
+            </p>
+        `;
+    }
+
+    if (type === 'gmail_error') {
+        cardClass = 'error';
+        htmlContent = `
+            <div class="result-title">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span>Gmail Authorization Failed</span>
+            </div>
+            <p style="color: var(--text-secondary);">
+                ${data.error || 'An error occurred during Gmail authorization.'}
+            </p>
         `;
     }
 
@@ -187,56 +203,13 @@ document.getElementById('statusForm').addEventListener('submit', async (e) => {
     }
 });
 
-// Gmail Auth URL Form
-document.getElementById('gmailAuthUrlForm').addEventListener('submit', async (e) => {
+// Gmail Auth Form
+document.getElementById('gmailAuthForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const button = e.target.querySelector('button');
-    const originalContent = showLoading(button);
+    const email = document.getElementById('gmailAuthEmail').value;
     
-    try {
-        const email = document.getElementById('gmailAuthUrlEmail').value;
-        const response = await fetch(`${baseUrl}/api/gmail/auth-url?email=${encodeURIComponent(email)}`);
-        const data = await response.json();
-
-        if (response.ok && data.auth_url) {
-            window.open(data.auth_url, '_blank');
-            renderResult({ message: 'Gmail consent page opened. Paste the returned code below to complete authorization.', auth_url: data.auth_url }, 'gmail_auth_url');
-        } else {
-            renderResult(data, 'gmail_auth_url');
-        }
-    } catch (error) {
-        renderResult({ error: error.message }, 'gmail_auth_url');
-    } finally {
-        restoreButton(button, originalContent);
-    }
-});
-
-// Gmail Authorization Form
-document.getElementById('gmailAuthorizeForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const button = e.target.querySelector('button');
-    const originalContent = showLoading(button);
-    
-    try {
-        const email = document.getElementById('gmailAuthorizeEmail').value;
-        const code = document.getElementById('gmailAuthCode').value;
-        const response = await fetch(`${baseUrl}/api/gmail/authorize`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, code })
-        });
-        const data = await response.json();
-        renderResult(data, 'gmail_authorize');
-
-        if (data.message) {
-            document.getElementById('gmailAuthorizeEmail').value = '';
-            document.getElementById('gmailAuthCode').value = '';
-        }
-    } catch (error) {
-        renderResult({ error: error.message }, 'gmail_authorize');
-    } finally {
-        restoreButton(button, originalContent);
-    }
+    // Redirect to the auth URL
+    window.location.href = `${baseUrl}/api/gmail/auth-url?email=${encodeURIComponent(email)}`;
 });
 
 // Scans Form
@@ -286,6 +259,25 @@ document.getElementById('unregisterForm').addEventListener('submit', async (e) =
         renderResult({ error: error.message }, 'unregister');
     } finally {
         restoreButton(button, originalContent);
+    }
+});
+
+// Check URL parameters on page load
+document.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    if (urlParams.has('success') && urlParams.get('success') === 'gmail_authorized') {
+        const email = urlParams.get('email');
+        renderResult({ email }, 'gmail_success');
+        // Clean up URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    
+    if (urlParams.has('error')) {
+        const error = urlParams.get('error');
+        renderResult({ error }, 'gmail_error');
+        // Clean up URL
+        window.history.replaceState({}, document.title, window.location.pathname);
     }
 });
 

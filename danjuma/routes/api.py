@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, redirect
 from services.gmail_service import GmailService
 from models.database import get_db_connection
 
@@ -59,6 +59,36 @@ def get_status():
     else:
         return jsonify({"is_active": False})
 
+@api_bp.route('/gmail/callback')
+def gmail_callback():
+    """Handle OAuth callback from Google."""
+    code = request.args.get('code')
+    state = request.args.get('state')  # This will be the email
+    
+    if not code or not state:
+        return redirect(f"{request.host_url}?error=missing_code_or_state")
+    
+    # Exchange code for credentials
+    gmail_service = GmailService(email=state)
+    creds = gmail_service.exchange_code_for_credentials(code, email=state)
+    
+    if not creds:
+        return redirect(f"{request.host_url}?error=failed_to_exchange_code")
+    
+    # Register the email if not already registered
+    db = get_db_connection()
+    cursor = db.cursor()
+    try:
+        cursor.execute("INSERT OR IGNORE INTO registered_emails (email, is_active) VALUES (?, 1)", (state,))
+        db.commit()
+    except Exception as e:
+        print(f"Error registering email: {e}")
+    finally:
+        db.close()
+    
+    # Redirect back to homepage with success
+    return redirect(f"{request.host_url}?success=gmail_authorized&email={state}")
+
 @api_bp.route('/gmail/auth-url', methods=['GET'])
 def gmail_auth_url():
     email = request.args.get('email')
@@ -71,7 +101,9 @@ def gmail_auth_url():
     if not auth_url:
         return jsonify({"error": "Unable to generate Gmail authorization URL"}), 500
 
-    return jsonify({"auth_url": auth_url, "state": state})
+    # For the automatic flow, redirect directly to the auth URL
+    # The state parameter will contain the email
+    return redirect(auth_url)
 
 @api_bp.route('/gmail/authorize', methods=['POST'])
 def gmail_authorize():

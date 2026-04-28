@@ -14,7 +14,7 @@ SCOPES = ['https://www.googleapis.com/auth/gmail.modify', 'https://www.googleapi
 class GmailService:
     def __init__(self, email=None, credentials_path=None, redirect_port=None):
         self.email = email
-        self.credentials_path = credentials_path or os.environ.get('GOOGLE_CREDENTIALS_PATH', 'credentials.json')
+        self.credentials_path = credentials_path or os.environ.get('GOOGLE_CREDENTIALS_PATH', 'danjuma/credentials.json')
         self.redirect_port = int(redirect_port or os.environ.get('GOOGLE_OAUTH_REDIRECT_PORT', '53510'))
         self.creds = self.get_credentials()
 
@@ -57,11 +57,13 @@ class GmailService:
         if not flow:
             return None, None
 
-        return flow.authorization_url(
+        auth_url, state = flow.authorization_url(
             access_type='offline',
             include_granted_scopes='true',
-            prompt='consent'
+            prompt='consent',
+            state=self.email  # Pass email as state
         )
+        return auth_url, state
 
     def exchange_code_for_credentials(self, code, email=None, redirect_uri=None):
         if email:
