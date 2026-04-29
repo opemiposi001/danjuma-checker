@@ -14,21 +14,28 @@ def run_scan_for_all_registered_emails():
     active_emails = cursor.fetchall()
 
     if not active_emails:
-        print("No active registered emails to scan.")
+        print("No active registered emails to scan.", flush=True)
         db.close()
         return
 
-    # In a real multi-user scenario, tokens would be per-user.
-    # For this simplified model, we use the shared token.json.
-    gmail_service = GmailService()
     vt_service = VirusTotalService(Config.VIRUSTOTAL_API_KEY)
 
     for row in active_emails:
         email = row['email']
-        print(f"Scanning for: {email}")
+        print(f"Scanning for: {email}", flush=True)
+        
+        # Create a GmailService instance for THIS specific user
+        gmail_service = GmailService(email=email)
+        
+        if not gmail_service.creds:
+            print(f"No credentials found for {email}, skipping.", flush=True)
+            continue
         
         # Scan emails from 1 to 9 minutes old (avoid recent and very old emails)
         unread_emails = gmail_service.get_unread_emails_with_attachments(min_age_minutes=1, max_age_minutes=9)
+        
+        if not unread_emails:
+            print(f"No unread emails with attachments for {email}", flush=True)
         
         for email_msg in unread_emails:
             sender = email_msg['sender']
@@ -38,7 +45,7 @@ def run_scan_for_all_registered_emails():
                 filename = attachment['filename']
                 file_data = attachment['data']
                 
-                print(f"Checking file: {filename} from {sender}")
+                print(f"Checking file: {filename} from {sender}", flush=True)
                 
                 analysis_id = vt_service.upload_file(file_data, filename)
                 result = vt_service.get_analysis_result(analysis_id)
@@ -78,9 +85,12 @@ Stay safe,
 Danjuma Malicious Attachment Checker
 """
                     gmail_service.send_result_email(email, f"[Danjuma Checker] Scan Result — {filename}", email_body)
-                    print(f"Result for {filename} sent to {email}")
+                    print(f"Result for {filename} sent to {email}", flush=True)
+                else:
+                    print(f"Failed to get VirusTotal result for {filename}", flush=True)
 
     db.close()
+    print("Scan cycle completed.", flush=True)
 
 if __name__ == "__main__":
     run_scan_for_all_registered_emails()
