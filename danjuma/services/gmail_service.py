@@ -202,13 +202,21 @@ class GmailService:
         """Fetches unread emails with attachments from a time window (e.g., 1-9 minutes old)."""
         service = self.get_service()
         if not service:
+            print("get_unread_emails_with_attachments: no service available", flush=True)
             return []
 
         try:
             user_id = 'me'
-            query = f'is:unread has:attachment newer_than:{max_age_minutes}m older_than:{min_age_minutes}m'
+            # Gmail query: newer_than means "received within the last X minutes"
+            # So we want emails received in the last max_age_minutes
+            # We'll filter out too-recent ones (< min_age_minutes) in code
+            query = f'is:unread has:attachment newer_than:{min_age_minutes}m'
+            print(f"Gmail query: {query}", flush=True)
+            
             results = service.users().messages().list(userId=user_id, q=query).execute()
             messages = results.get('messages', [])
+            print(f"Found {len(messages)} unread emails with attachments", flush=True)
+            
             email_data = []
 
             for message in messages:
@@ -239,6 +247,7 @@ class GmailService:
                             })
 
                 if attachments:
+                    print(f"Found email from {sender} with {len(attachments)} attachment(s): {[a['filename'] for a in attachments]}", flush=True)
                     email_data.append({
                         'id': message['id'],
                         'subject': subject,
@@ -246,14 +255,16 @@ class GmailService:
                         'attachments': attachments
                     })
 
-                service.users().messages().batchModify(
-                    userId=user_id,
-                    body={'ids': [message['id']], 'removeLabelIds': ['UNREAD']}
-                ).execute()
+                    # Mark as read after processing
+                    service.users().messages().batchModify(
+                        userId=user_id,
+                        body={'ids': [message['id']], 'removeLabelIds': ['UNREAD']}
+                    ).execute()
+                    print(f"Marked message {message['id']} as read", flush=True)
 
             return email_data
         except HttpError as error:
-            print(f'An error occurred: {error}')
+            print(f'An error occurred: {error}', flush=True)
             return []
 
     def send_result_email(self, to, subject, body):
